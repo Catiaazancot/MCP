@@ -169,3 +169,214 @@ Si esto funciona (cliente MCP Python + autenticación Entra + endpoint remoto de
 
 [Resumen: El error 401 no indica un fallo del cliente MCP, sino ausencia de autenticación. En VS Code, Copilot resolvía ese paso automáticamente. 
 En Python tenemos que adquirir un token de Microsoft Entra para Fabric y enviarlo como Bearer token al endpoint MCP remoto.]
+
+
+funciona
+-- > Estamos autenticando la aplicación mediante un token de Microsoft Entra, lo que permite que el script Python actúe en nombre del usuario 
+y acceda al modelo semántico de Power BI respetando sus permisos y seguridad
+Estás dando identidad al sistema para que pueda acceder
+az login: inicias sesión tú como usuario (igual que en el navegador)
+az account: “Dame un permiso temporal para que otra aplicación (tu script Python) pueda actuar en mi nombre”
+
+Validacion
+
+conexión desde Python al Remote MCP ✔️
+autenticación con token de Fabric ✔️
+inicialización de sesión MCP ✔️
+descubrimiento de tools reales de Power BI ✔️
+
+Esto confirma que sí puedes consumir el Remote MCP desde tu propia app
+
+“He encontrado el servidor, he autenticado al usuario, pero no consigo localizar ese artefacto concreto como modelo/report válido para esa tool.”
+
+
+
+listar datasets del workspace por REST,
+listar reports del workspace por REST,
+comprobar qué datasetId devuelve el report.
+
+Con eso cerramos si el problema es de ID real o de comportamiento preview del MCP.
+
+He validado la conexión al MCP de Fabric, pero ahora estoy comprobando por REST los IDs reales de datasets y reports del workspace. 
+El 401 indica que el token actual no está siendo aceptado por la API REST de Power BI, así que estoy verificando si es un tema de recurso del token o de permisos de la identidad.
+
+
+Por REST has validado que:
+
+el workspaceId es e11e0d22-1585-47c1-a856-36dd2d137d06,
+el dataset / semantic model existe y su ID es d93917e1-621a-4516-a7cc-09bb5fc13c3a,
+el report existe y su ID es 57a49e19-6742-49d5-bf69-468a0081919c,
+y el report apunta exactamente a ese dataset.
+
+Así que ya no estamos ante un problema de:
+
+ID incorrecto,
+workspace incorrecto,
+ni relación report-dataset incorrecta.
+Conclusión práctica
+
+El problema queda acotado a esto:
+
+GetSemanticModelSchema está fallando pese a que el artefacto existe y es accesible. posibles limitaciones del preview
+
+FASE 2: conectar con MCP (Power BI)
+
+1. integrar MCP en mcp_client.py
+
+OPCION A: MVP funcional rapido
+
+
+ya probé el Remote MCP dentro de GitHub Copilot en VS Code. Eso demuestra que:
+
+el tenant está bien
+el endpoint MCP funciona
+tu acceso funciona
+el modelo semántico responde
+
+Pero eso no significa que lo pueda hacer desde python
+
+Porque Copilot actúa como cliente MCP y ya sabe hablar con ese servidor.
+Mi app Python ahora mismo todavía no es un cliente MCP.
+
+
+*************Camino 1. Rápido pero menos directo
+
+Tu app usa el LLM y una capa propia que luego llama a Power BI por otro mecanismo.
+
+Camino 2. Correcto para tu producto
+
+Tu app Python actúa como cliente MCP y se conecta al Remote MCP de Power BI.
+
+
+Vía correcta para integrar ya Power BI: montar tu app sobre un cliente/framework que soporte servidores MCP remotos HTTP y autenticación, 
+y desde ahí conectar el Remote MCP de Power BI. Microsoft remarca justamente ese requisito de compatibilidad del cliente
+
+El siguiente paso más sensato es que te proponga la forma más simple de integrar un cliente MCP en Python para hablar con el Remote MCP de Power BI
+
+Primero vamos a hacer una prueba técnica mínima:
+
+instalar el SDK oficial de MCP en Python
+crear un script muy pequeño que se conecte al endpoint remoto
+intentar inicializar sesión y listar herramientas
+
+Si eso funciona, ya sabemos que tu app Python puede actuar como cliente MCP de verdad. Si no, el bloqueo estará en autenticación o compatibilidad, no en tu chat.
+
+Eso es lo correcto porque así validas una sola cosa:
+
+si tu app Python puede actuar como cliente MCP real contra Power BI.
+
+Microsoft indica que el Remote Power BI MCP usa el endpoint https://api.fabric.microsoft.com/v1/mcp/powerbi, que no debe tratarse como una API REST tradicional, y que debe consumirse desde clientes MCP compatibles con endpoints HTTP.************************
+
+
+
+10: crear una prueba mínima de conexión MCP
+
+nuevo archivo mcp_test.py
+si funciona: python llega al endpoint MCP, el SDK MCP funciona, puedo iniciar sesion 
+
+he ejecutado y 401 Unauthorized, significa que:
+        - Python está llego al endpoint del MCP remoto PBI
+        - el bloqueo es de autenticación " Microsoft documenta ese endpoint remoto y, para las APIs de Fabric en general, indica que debes obtener un token de Microsoft Entra y enviarlo en el encabezado de autorización. 
+                                            Además, en MCP, una respuesta 401 forma parte del flujo de autorización HTTP"
+
+"En VS Code + Copilot, GitHub Copilot te resolvía la autenticación por detrás.
+En Python, ahora mismo no estás enviando ningún token Bearer, por eso el servidor responde 401. El transporte HTTP de MCP admite autenticación estándar por cabeceras HTTP, y la documentación de Fabric indica usar tokens Bearer para sus APIs"
+
+Vamos a probar con un token de Entra obtenido desde Azure CLI, porque es la forma más rápida de validar el flujo
+
+1) Entra en Azure CLI
+En terminal: az login
+
+2) Obtener un token para Fabric: 
+(La documentacion de fabric muestra este recurso): az account get-access-token --resource https://api.fabric.microsoft.com --query accessToken -o tsv
+
+Este comando devuelve el token de acceso
+
+3) Acutalizar el archivo mcp_test.py
+        - sustuitur contenido
+        - definir el token en la sesion de terminal
+
+Si esto funciona (cliente MCP Python + autenticación Entra + endpoint remoto de Power BI) --> se puede consumir el remote mcp desde mi app de python
+
+[Resumen: El error 401 no indica un fallo del cliente MCP, sino ausencia de autenticación. En VS Code, Copilot resolvía ese paso automáticamente. 
+En Python tenemos que adquirir un token de Microsoft Entra para Fabric y enviarlo como Bearer token al endpoint MCP remoto.]
+
+
+funciona
+-- > Estamos autenticando la aplicación mediante un token de Microsoft Entra, lo que permite que el script Python actúe en nombre del usuario 
+y acceda al modelo semántico de Power BI respetando sus permisos y seguridad
+Estás dando identidad al sistema para que pueda acceder
+az login: inicias sesión tú como usuario (igual que en el navegador)
+az account: “Dame un permiso temporal para que otra aplicación (tu script Python) pueda actuar en mi nombre”
+
+Validacion
+
+conexión desde Python al Remote MCP ✔️
+autenticación con token de Fabric ✔️
+inicialización de sesión MCP ✔️
+descubrimiento de tools reales de Power BI ✔️
+
+Esto confirma que sí puedes consumir el Remote MCP desde tu propia app
+
+“He encontrado el servidor, he autenticado al usuario, pero no consigo localizar ese artefacto concreto como modelo/report válido para esa tool.”
+
+
+
+listar datasets del workspace por REST,
+listar reports del workspace por REST,
+comprobar qué datasetId devuelve el report.
+
+Con eso cerramos si el problema es de ID real o de comportamiento preview del MCP.
+
+He validado la conexión al MCP de Fabric, pero ahora estoy comprobando por REST los IDs reales de datasets y reports del workspace. 
+El 401 indica que el token actual no está siendo aceptado por la API REST de Power BI, así que estoy verificando si es un tema de recurso del token o de permisos de la identidad.
+
+
+Por REST has validado que:
+
+el workspaceId es e11e0d22-1585-47c1-a856-36dd2d137d06,
+el dataset / semantic model existe y su ID es d93917e1-621a-4516-a7cc-09bb5fc13c3a,
+el report existe y su ID es 57a49e19-6742-49d5-bf69-468a0081919c,
+y el report apunta exactamente a ese dataset.
+
+Así que ya no estamos ante un problema de:
+
+ID incorrecto,
+workspace incorrecto,
+ni relación report-dataset incorrecta.
+Conclusión práctica
+
+El problema queda acotado a esto:
+
+GetSemanticModelSchema está fallando pese a que el artefacto existe y es accesible. 
+
+La conexión MCP desde Python funciona bien.
+Y además:
+
+el token sí se está enviando
+la sesión MCP sí se inicializa
+GetSemanticModelSchema sí funciona
+el artefacto está resolviendo correctamente hacia el modelo semántico
+no hay ahora mismo un problema de permisos, token ni compatibilidad básica del cliente
+Mi opinión, muy breve
+
+El bloqueo principal de “no puedo conectar Python con Remote MCP de Power BI” ya está resuelto.
+
+GenerateQuery falla con:
+
+Authentication failed for all authenticators
+
+
+GetSemanticModelSchema sí funciona.
+ExecuteQuery falla con Capacity operation failed with error code Unauthorized.
+GenerateQuery además usa el motor de Copilot y requiere licencia de Copilot para el usuario o la organización.
+
+Mi opinión, muy breve: el problema ya no está en Python ni en MCP básico. Lo más probable ahora es un tema de capacidad/licenciamiento para consulta del modelo, 
+y aparte GenerateQuery puede estar fallando por licencia de Copilot. Para consultar semantic models desde clientes externos, Power BI se apoya en el XMLA endpoint; 
+para lectura, ese endpoint debe estar habilitado al menos en Read, y en apps de usuario único el usuario necesita PPU salvo que el modelo esté en una Premium/Fabric capacity.
+
+
+el camino “MCP remoto de Power BI completo” deja de ser una buena base de producto, porque precisamente las dos capacidades que le dan valor real —generar y ejecutar consulta— son las que os están chocando con límites de backend/capacidad. La documentación oficial del MCP confirma que el servidor remoto ofrece esas tres herramientas, que Generate Query usa el motor de Copilot y que Execute Query se apoya en el contexto del usuario y en permisos sobre el modelo. Además, la documentación oficial de XMLA deja claro que la conectividad avanzada del motor tabular está asociada a Premium, Premium Per User o Embedded, no a workspaces Pro.
+
+Dicho de forma clara: con Pro podéis leer metadatos del modelo, pero no debéis diseñar el producto suponiendo que vais a tener acceso estable a todas las capacidades “inteligentes” del MCP remoto. 
+Y, además, Generate Query tiene otra dependencia adicional: licencia de Copilot. La propia documentación del MCP lo indica.
