@@ -1,0 +1,11 @@
+# Archivo para definir las herramientas que necesita la aplicacion para funcionar (para reproducir el proyecto en otro equipo y desplegarlo en servidores)
+# mediante pip install -r requirements.txt --> lee el archivo e instala las herramientas listadas ("preparame el entorno con todo lo necesario")
+
+streamlit
+python-dotenv
+openai
+requests 
+mcp 
+# python-dotenv: gestionar la configuración de forma segura (tokens, credenciales, endpoints...), Se guardan en .env en vez de en el código.
+# requests: conectarnos con servicios externos como MCP 
+#mcp: incorporamos el SDK oficial de MCP para que la aplicación pueda hablar el protocolo MCP de forma nativa, nos acerca a una integración compatible con el servidor remoto de Power BI.
